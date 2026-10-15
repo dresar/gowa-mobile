@@ -5,10 +5,11 @@ const { execFileSync, spawnSync } = require('child_process')
 const rootDir = path.resolve(__dirname, '..')
 const mobileDir = __dirname
 const uiDirCandidates = [
+  path.resolve(mobileDir, 'ui'),
   path.resolve(rootDir, 'gowa-ui'),
   path.resolve(rootDir, 'golangwaui'),
 ]
-const uiDir = uiDirCandidates.find((d) => fs.existsSync(d)) || path.resolve(rootDir, 'gowa-ui')
+const uiDir = uiDirCandidates.find((d) => fs.existsSync(d)) || path.resolve(mobileDir, 'ui')
 
 let sharp
 let AdmZip
@@ -186,9 +187,9 @@ async function build() {
       '--target-sdk-version',
       '34',
       '--version-code',
-      '3',
+      '5',
       '--version-name',
-      '1.1.2',
+      '1.1.4',
       '--manifest',
       manifestPath,
       '-R',

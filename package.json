@@ -1,10 +1,12 @@
 {
   "name": "gowa-mobile",
-  "version": "1.1.0",
-  "description": "GoWA Mobile - Lightweight Android APK Builder via Node.js",
+  "version": "1.1.4",
+  "description": "GoWA Mobile - Android APK with Dedicated Mobile React UI",
   "private": true,
   "scripts": {
-    "build": "node build.js"
+    "build:ui": "cd ui && npm run build",
+    "build:apk": "node build.js",
+    "build": "npm run build:ui && npm run build:apk"
   },
   "dependencies": {
     "adm-zip": "^0.5.18",

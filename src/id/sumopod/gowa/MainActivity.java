@@ -81,7 +81,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public String getAppVersion() {
-            return "1.1.2";
+            return "1.1.4";
         }
 
         @JavascriptInterface
@@ -177,7 +177,7 @@ public class MainActivity extends Activity {
         }
 
         String defaultUa = settings.getUserAgentString();
-        settings.setUserAgentString((defaultUa != null ? defaultUa : "") + " GoWAMobile/1.1.2");
+        settings.setUserAgentString((defaultUa != null ? defaultUa : "") + " GoWAMobile/1.1.4");
 
         MobileBridge bridge = new MobileBridge();
         webView.addJavascriptInterface(bridge, "GoWAMobile");
@@ -186,9 +186,8 @@ public class MainActivity extends Activity {
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("file://")) {
-                    view.loadUrl(url);
-                    return true;
+                if (url != null && url.startsWith("file:///android_asset/")) {
+                    return false;
                 }
                 try {
                     Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
@@ -220,25 +219,17 @@ public class MainActivity extends Activity {
             @Override
             public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
                 super.onReceivedError(view, errorCode, description, failingUrl);
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-                    if (failingUrl != null && !failingUrl.startsWith("file:///android_asset/")) {
-                        String currentUrl = view.getUrl();
-                        if (currentUrl != null && currentUrl.equals(failingUrl)) {
-                            showErrorScreen();
-                        }
-                    }
-                }
+                notifyConnectionError(description != null ? description : "Koneksi terputus");
             }
 
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 super.onReceivedError(view, request, error);
-                if (request != null && request.isForMainFrame()) {
-                    String failingUrl = request.getUrl() != null ? request.getUrl().toString() : "";
-                    if (!failingUrl.startsWith("file:///android_asset/")) {
-                        showErrorScreen();
-                    }
+                String msg = "Koneksi terputus";
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && error != null && error.getDescription() != null) {
+                    msg = error.getDescription().toString();
                 }
+                notifyConnectionError(msg);
             }
         });
 
@@ -448,18 +439,22 @@ public class MainActivity extends Activity {
         errorView.addView(configBtn, configParams);
     }
 
-    private void showErrorScreen() {
+    private void notifyConnectionError(final String errorMsg) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                if (splashView != null) {
+                if (splashView != null && splashView.getVisibility() == View.VISIBLE) {
                     splashView.setVisibility(View.GONE);
                 }
-                if (errorView != null) {
-                    errorView.setVisibility(View.VISIBLE);
-                }
+                try {
+                    webView.evaluateJavascript("window.dispatchEvent(new CustomEvent('gowa:connection-error', { detail: { message: '" + (errorMsg != null ? errorMsg.replace("'", "\\'") : "Koneksi terputus") + "' } }));", null);
+                } catch (Exception ignored) {}
             }
         });
+    }
+
+    private void showErrorScreen() {
+        notifyConnectionError("Server tidak merespons");
     }
 
     private void initNotificationChannel() {
@@ -569,13 +564,6 @@ public class MainActivity extends Activity {
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
-            if (errorView != null && errorView.getVisibility() == View.VISIBLE) {
-                errorView.setVisibility(View.GONE);
-                splashView.setAlpha(1f);
-                splashView.setVisibility(View.VISIBLE);
-                webView.reload();
-                return true;
-            }
             if (webView != null && webView.canGoBack()) {
                 webView.goBack();
                 return true;
