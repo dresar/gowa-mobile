@@ -293,6 +293,20 @@ async function build() {
     throw new Error(`APK verification failed with exit code ${verifyRes.status}`)
   }
 
+  const pkgJsonPath = path.join(mobileDir, 'package.json')
+  let appVersion = '1.1.4'
+  if (fs.existsSync(pkgJsonPath)) {
+    try {
+      const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'))
+      if (pkg.version) appVersion = pkg.version
+    } catch (_) {}
+  }
+
+  // Archive build to releases/v<version>/gowa-v<version>.apk (never overwrite/delete past builds)
+  const mobileReleaseDir = path.join(mobileDir, 'releases', `v${appVersion}`)
+  fs.mkdirSync(mobileReleaseDir, { recursive: true })
+  fs.copyFileSync(outputApk, path.join(mobileReleaseDir, `gowa-v${appVersion}.apk`))
+
   const targetDirs = [
     path.resolve(rootDir, 'gowanew/statics'),
     path.resolve(rootDir, 'gowanew/src/storages/statics'),
@@ -305,12 +319,17 @@ async function build() {
     if (fs.existsSync(path.dirname(dir))) {
       fs.mkdirSync(dir, { recursive: true })
       fs.copyFileSync(outputApk, path.join(dir, 'gowa.apk'))
+      const verRelDir = path.join(dir, 'releases', `v${appVersion}`)
+      fs.mkdirSync(verRelDir, { recursive: true })
+      fs.copyFileSync(outputApk, path.join(verRelDir, `gowa-v${appVersion}.apk`))
     }
   }
 
   const stat = fs.statSync(outputApk)
   console.log(`\n=== GoWA Mobile APK Build Complete ===`)
-  console.log(`Location: ${outputApk}`)
+  console.log(`Version: v${appVersion}`)
+  console.log(`Latest Alias: ${outputApk}`)
+  console.log(`Archived Build: ${path.join(mobileReleaseDir, `gowa-v${appVersion}.apk`)}`)
   console.log(`Size: ${(stat.size / 1024 / 1024).toFixed(2)} MB (${stat.size} bytes)`)
 }
 

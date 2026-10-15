@@ -14,6 +14,19 @@ Aplikasi client Android resmi untuk WhatsApp Automation Suite (GoWA). Dibangun s
 - **JavaScript Bridge**: Sinkronisasi preferensi endpoint server di `SharedPreferences`, getar haptic, dan notifikasi toast.
 - **Double-Tap Back to Exit**: Menghindari aplikasi keluar tanpa sengaja.
 
+## Unduhan & Riwayat Rilis
+
+Setiap hasil build versi Android APK dan Windows x64 disimpan secara permanen di folder `releases/` dan tidak akan pernah dihapus atau ditimpa:
+
+| Versi | Berkas | Ukuran | Catatan Rilis |
+| :--- | :--- | :--- | :--- |
+| **v1.1.4 (Terbaru)** | [`releases/v1.1.4/gowa-v1.1.4.apk`](releases/v1.1.4/gowa-v1.1.4.apk) | 1.05 MB | UI React Mandiri, WebSocket real-time, Notifikasi chat personal |
+| **v1.1.3** | [`releases/v1.1.3/gowa-v1.1.3.apk`](releases/v1.1.3/gowa-v1.1.3.apk) | 1.05 MB | Notifikasi audio & perbaikan auto-reconnect |
+| **v1.1.2** | [`releases/v1.1.2/gowa-v1.1.2.apk`](releases/v1.1.2/gowa-v1.1.2.apk) | 1.05 MB | Auto-updater APK & deteksi dinamis endpoint |
+| **v1.1.0** | [`releases/v1.1.0/gowa-v1.1.0.apk`](releases/v1.1.0/gowa-v1.1.0.apk) | 1.06 MB | Rilis perdana native Android wrapper |
+
+Dokumentasi lengkap dan checksum SHA256 dapat dilihat di [RELEASES.md](RELEASES.md).
+
 ## Instalasi
 
 Unduh berkas `gowa.apk` dari direktori rilis atau pasang melalui ADB:

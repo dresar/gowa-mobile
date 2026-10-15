@@ -4,10 +4,12 @@ import {
   ArrowDownCircle,
   CheckCircle2,
   Clock,
-  Download,
+  FileArchive,
   GitBranch,
   GitCommit,
   History,
+  Monitor,
+  Package,
   Radio,
   RefreshCw,
   RotateCcw,
@@ -17,6 +19,7 @@ import {
   User,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { DownloadDialog } from '@/components/layout/download-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -75,6 +78,7 @@ export default function SettingsGeneralPage() {
 
   const [syncResult, setSyncResult] = useState<SyncSystemResult | null>(null)
   const [showSyncModal, setShowSyncModal] = useState(false)
+  const [showDownloadModal, setShowDownloadModal] = useState(false)
 
   useEffect(() => {
     if (settings) {
@@ -337,28 +341,29 @@ export default function SettingsGeneralPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                <Smartphone className="size-4 text-emerald-500" />
-                <span>Aplikasi Mobile Android</span>
+                <Package className="size-4 text-primary" />
+                <span>Paket Aplikasi & Unduhan (Android & Windows)</span>
                 <InfoHint
-                  title="Aplikasi GoWA Mobile"
-                  description="Paket Android APK mandiri tanpa ketergantungan pihak ketiga."
+                  title="Aplikasi GoWA Multi-Platform"
+                  description="Paket build aplikasi mandiri untuk Android APK dan Windows x64."
                   items={[
-                    'Kompatibel penuh di semua ponsel Android versi 5.0 hingga Android 15.',
-                    'Dilengkapi tanda tangan multi-skema v1, v2, dan v3.',
-                    'Dapat dipasang langsung (sideload) tanpa Google Play Store.',
+                    'Android APK v1.1.4: Dilengkapi UI React tertanam dan notifikasi chat personal.',
+                    'Windows x64 ZIP: Paket portable mandiri dengan run.bat dan UI bawaan.',
+                    'Windows Standalone EXE: Binary GoWA core tanpa CGO (Pure Go SQLite).',
+                    'Riwayat Rilis: Semua versi sebelumnya (v1.1.0, v1.1.2, v1.1.3, v1.1.4) tetap tersimpan dan dapat diunduh.',
                   ]}
                 />
               </CardTitle>
               <CardDescription className="text-xs mt-0.5">
-                Paket aplikasi Android mandiri dengan WebView ringan dan pengunduh berkas otomatis.
+                Unduh file build resmi untuk Android dan Windows atau akses arsip versi terdahulu.
               </CardDescription>
             </div>
             <div className="flex items-center gap-1.5 self-start sm:self-auto">
               <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-mono">
-                v1.1.0
+                v1.1.4 Terbaru
               </Badge>
               <Badge variant="outline" className="text-[10px] font-mono">
-                1.04 MB
+                PureGo SQLite
               </Badge>
             </div>
           </div>
@@ -366,30 +371,53 @@ export default function SettingsGeneralPage() {
         <CardContent className="flex flex-col gap-3">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
             <div className="border-border/50 bg-muted/20 flex flex-col gap-1 rounded-lg border p-2.5">
-              <span className="text-muted-foreground text-[11px]">Kompatibilitas</span>
-              <span className="font-semibold text-foreground text-xs">Android 5.0 – 15</span>
+              <span className="text-muted-foreground text-[11px]">Android APK (v1.1.4)</span>
+              <span className="font-semibold text-foreground text-xs">1.05 MB • Android 5.0 – 15</span>
             </div>
             <div className="border-border/50 bg-muted/20 flex flex-col gap-1 rounded-lg border p-2.5">
-              <span className="text-muted-foreground text-[11px]">Tanda Tangan</span>
-              <span className="font-semibold text-foreground text-xs font-mono">v1, v2, v3 Verified</span>
+              <span className="text-muted-foreground text-[11px]">Windows x64 Paket (ZIP)</span>
+              <span className="font-semibold text-foreground text-xs">12.5 MB • EXE + UI + run.bat</span>
             </div>
             <div className="border-border/50 bg-muted/20 flex flex-col gap-1 rounded-lg border p-2.5">
-              <span className="text-muted-foreground text-[11px]">Ukuran Berkas</span>
-              <span className="font-semibold text-foreground text-xs font-mono">1.04 MB</span>
+              <span className="text-muted-foreground text-[11px]">Windows Standalone (.EXE)</span>
+              <span className="font-semibold text-foreground text-xs font-mono">36.2 MB • 64-bit Binary</span>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2.5 pt-1 border-t border-border/40">
+          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/40">
             <a
-              href="/statics/gowa.apk?v=1.1.0"
-              download="gowa.apk"
-              className="btn-primary-theme inline-flex items-center gap-2 px-3.5 h-8 text-xs font-semibold rounded-lg shadow-xs transition-colors"
+              href="/statics/releases/v1.1.4/gowa-v1.1.4.apk"
+              download="gowa-v1.1.4.apk"
+              className="inline-flex items-center gap-1.5 px-3 h-8 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-xs"
             >
-              <Download className="size-3.5" />
+              <Smartphone className="size-3.5" />
               <span>Unduh APK Mobile (1.0 MB)</span>
             </a>
-            <span className="text-muted-foreground text-[11px]">
-              Dapat dipasang langsung di semua tipe ponsel Android.
-            </span>
+            <a
+              href="/statics/releases/v1.1.4/gowa-v1.1.4-windows-amd64.zip"
+              download="gowa-v1.1.4-windows-amd64.zip"
+              className="inline-flex items-center gap-1.5 px-3 h-8 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-xs"
+            >
+              <FileArchive className="size-3.5" />
+              <span>Unduh Paket Windows ZIP (12 MB)</span>
+            </a>
+            <a
+              href="/statics/releases/v1.1.4/gowa-v1.1.4-windows-amd64.exe"
+              download="gowa.exe"
+              className="inline-flex items-center gap-1.5 px-3 h-8 text-xs font-semibold rounded-lg border border-border bg-card hover:bg-muted transition-colors text-foreground"
+            >
+              <Monitor className="size-3.5" />
+              <span>Windows .EXE</span>
+            </a>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowDownloadModal(true)}
+              className="h-8 gap-1.5 text-xs font-semibold border-primary/30 text-primary hover:bg-primary/10 ml-auto"
+            >
+              <History className="size-3.5" />
+              <span>Riwayat Semua Versi</span>
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -645,6 +673,7 @@ export default function SettingsGeneralPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <DownloadDialog open={showDownloadModal} onOpenChange={setShowDownloadModal} />
     </div>
   )
 }

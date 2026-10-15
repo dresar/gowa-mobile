@@ -4,6 +4,7 @@ import {
   Delete,
   Loader2,
   Lock,
+  Monitor,
   Server,
   Smartphone,
   XCircle,
@@ -391,14 +392,26 @@ export default function ConnectPage() {
         </Card>
 
         {!isApkMode && (
-          <a
-            href="/statics/gowa.apk?v=1.0.1"
-            download="gowa.apk"
-            className="glass-card border-border/70 hover:border-emerald-500/50 flex w-full items-center justify-center gap-2 rounded-xl border bg-card/60 p-2.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 shadow-md transition-all hover:bg-emerald-500/10 active:scale-[0.98]"
-          >
-            <Smartphone className="size-4 text-emerald-500" />
-            <span>Download APK Mobile Android (.apk)</span>
-          </a>
+          <div className="flex flex-col gap-2 w-full">
+            <div className="flex items-center gap-2 w-full">
+              <a
+                href="/statics/releases/v1.1.4/gowa-v1.1.4.apk"
+                download="gowa-v1.1.4.apk"
+                className="glass-card border-border/70 hover:border-emerald-500/50 flex flex-1 items-center justify-center gap-1.5 rounded-xl border bg-card/60 p-2.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 shadow-xs transition-all hover:bg-emerald-500/10 active:scale-[0.98]"
+              >
+                <Smartphone className="size-4 text-emerald-500" />
+                <span>Unduh APK Android</span>
+              </a>
+              <a
+                href="/statics/releases/v1.1.4/gowa-v1.1.4-windows-amd64.zip"
+                download="gowa-v1.1.4-windows-amd64.zip"
+                className="glass-card border-border/70 hover:border-blue-500/50 flex flex-1 items-center justify-center gap-1.5 rounded-xl border bg-card/60 p-2.5 text-xs font-semibold text-blue-600 dark:text-blue-400 shadow-xs transition-all hover:bg-blue-500/10 active:scale-[0.98]"
+              >
+                <Monitor className="size-4 text-blue-500" />
+                <span>Unduh Windows ZIP</span>
+              </a>
+            </div>
+          </div>
         )}
       </div>
     </div>
