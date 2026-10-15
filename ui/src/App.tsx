@@ -42,15 +42,32 @@ import BotGroupsPage from '@/pages/bot-groups'
 import BotLogsPage from '@/pages/bot-logs'
 import IntegrationsPage from '@/pages/integrations'
 
+const notifiedMessageCache = new Map<string, number>()
+
+function hasBeenNotified(id: string): boolean {
+  const now = Date.now()
+  const ts = notifiedMessageCache.get(id)
+  if (ts && now - ts < 10 * 60 * 1000) {
+    return true
+  }
+  if (notifiedMessageCache.size > 1000) {
+    for (const [key, time] of notifiedMessageCache.entries()) {
+      if (now - time > 10 * 60 * 1000) {
+        notifiedMessageCache.delete(key)
+      }
+    }
+  }
+  return false
+}
+
+function markNotified(id: string): void {
+  notifiedMessageCache.set(id, Date.now())
+}
+
 function notify(title: string, body: string, tag: string) {
   const mobile = (window as any).GoWAMobile
   if (mobile && typeof mobile.showNotification === 'function') {
     mobile.showNotification(title, body, tag)
-    if (typeof mobile.vibrate === 'function') {
-      try {
-        mobile.vibrate(150)
-      } catch {}
-    }
     return
   }
   if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -112,34 +129,66 @@ function useBootstrap() {
             if (removed && removed === selectedDeviceId) selectDevice(null)
             break
           }
-          case 'CHAT_MESSAGE_NEW':
+          case 'CHAT_MESSAGE_NEW': {
+            void queryClient.invalidateQueries({ queryKey: ['chats'] })
+            void queryClient.invalidateQueries({ queryKey: ['chat-messages'] })
+            break
+          }
           case 'INCOMING_MESSAGE': {
+            void queryClient.invalidateQueries({ queryKey: ['chats'] })
+            void queryClient.invalidateQueries({ queryKey: ['chat-messages'] })
+
             const data = event.result as {
+              id?: string
               chat_jid?: string
               sender?: string
               phone?: string
               body?: string
               is_from_me?: boolean
               is_group?: boolean
+              timestamp?: number
             } | null
 
-            void queryClient.invalidateQueries({ queryKey: ['chats'] })
-            void queryClient.invalidateQueries({ queryKey: ['chat-messages'] })
+            if (!data) break
+            if (data.is_from_me || data.is_group) break
 
-            if (event.code === 'INCOMING_MESSAGE' || (data && !data.is_from_me && !data.is_group)) {
-              if (data && !data.is_group && !data.is_from_me) {
-                const sender = data.sender || data.phone || 'Pesan Baru'
-                const text = data.body || 'Pesan masuk'
-                notify(sender, text, 'chat')
+            const chatJid = (data.chat_jid || '').toLowerCase()
+            if (
+              !chatJid ||
+              chatJid.includes('status@') ||
+              chatJid.endsWith('@broadcast') ||
+              chatJid.endsWith('@newsletter') ||
+              chatJid.endsWith('@g.us')
+            ) {
+              break
+            }
+
+            const now = Date.now()
+            const msgTime = Number(data.timestamp) || 0
+            if (msgTime > 0) {
+              const diffMs = Math.abs(now - msgTime)
+              if (diffMs > 35000) {
+                break
               }
             }
+
+            const msgId = data.id || `${chatJid}_${msgTime}`
+            if (hasBeenNotified(msgId)) {
+              break
+            }
+            markNotified(msgId)
+
+            const sender = data.sender || data.phone || 'Pesan Baru'
+            const text = data.body || 'Pesan masuk'
+            notify(sender, text, `chat_${chatJid}`)
             break
           }
           case 'SCHEDULED_DELIVERED': {
-            const data = event.result as { phone?: string; summary?: string; message_type?: string } | null
+            const data = event.result as { id?: string; phone?: string; summary?: string; message_type?: string } | null
             const phone = data?.phone || 'Penerima'
             const detail = data?.summary || (data?.message_type ? `Pesan ${data.message_type}` : 'Pesan berhasil dikirim')
-            notify('Jadwal Pesan Terkirim', `Pesan ke ${phone} telah terkirim: ${detail}`, 'schedule')
+            const notifKey = `sched_${data?.id || phone}_${Date.now()}`
+            notify('Jadwal Pesan Terkirim', `Pesan ke ${phone} telah terkirim: ${detail}`, notifKey)
             void queryClient.invalidateQueries({ queryKey: ['scheduled-sends'] })
             break
           }

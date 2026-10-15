@@ -81,7 +81,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public String getAppVersion() {
-            return "1.1.4";
+            return "1.1.5";
         }
 
         @JavascriptInterface
@@ -488,14 +488,6 @@ public class MainActivity extends Activity {
 
     public void displayNotification(String title, String body, String type) {
         try {
-            try {
-                Toast.makeText(this, title + ": " + body, Toast.LENGTH_SHORT).show();
-                Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-                if (v != null && v.hasVibrator()) {
-                    v.vibrate(200);
-                }
-            } catch (Exception ignored) {}
-
             NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
             if (nm == null) return;
 
@@ -531,8 +523,9 @@ public class MainActivity extends Activity {
                 builder.setStyle(new Notification.BigTextStyle().bigText(body));
             }
 
-            int notifId = (int) (System.currentTimeMillis() % 1000000000L);
-            nm.notify(notifId, builder.build());
+            String tag = (type != null && !type.trim().isEmpty()) ? type.trim() : "gowa";
+            int notifId = Math.abs(tag.hashCode() % 1000000000);
+            nm.notify(tag, notifId, builder.build());
         } catch (Exception e) {
             e.printStackTrace();
         }
