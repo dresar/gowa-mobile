@@ -103,14 +103,50 @@ export default function SettingsGeneralPage() {
     mutationFn: syncSystem,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['system-version'] })
-      setSyncResult(data)
-      setShowSyncModal(true)
-      toast.success(data.latest_commit ? `Sinkronisasi berhasil: ${data.latest_commit}` : 'Sinkronisasi berhasil')
+      const isAlreadyLatest = Boolean(
+        data.already_up_to_date ||
+        data.has_new_update === false ||
+        data.output?.toLowerCase().includes('already up to date')
+      )
+
+      if (isAlreadyLatest) {
+        setShowSyncModal(false)
+        toast.info('Sistem sudah menggunakan versi terbaru')
+      } else {
+        setSyncResult(data)
+        setShowSyncModal(true)
+        toast.success(data.latest_commit ? `Pembaruan berhasil diterapkan: ${data.latest_commit}` : 'Pembaruan berhasil diterapkan')
+      }
     },
     onError: (err: any) => {
       toast.error('Gagal sinkronisasi: ' + (err?.message || 'Gagal git pull'))
     },
   })
+
+  const handleCheckUpdateManual = async () => {
+    toast.info('Memeriksa pembaruan di GitHub...')
+    try {
+      const res = await refetchVersion()
+      const latest = res.data
+      const hasIncoming = Boolean(latest?.has_update || (latest?.incoming_commits && latest.incoming_commits.length > 0))
+      if (hasIncoming) {
+        const count = latest?.incoming_commits?.length || 1
+        toast.success(`Ada pembaruan baru di GitHub (${count} commit baru siap disinkronkan)`)
+      } else {
+        toast.info('Sistem sudah menggunakan versi terbaru (tidak ada pembaruan)')
+      }
+    } catch {
+      toast.error('Gagal memeriksa pembaruan')
+    }
+  }
+
+  const handleSync = () => {
+    if (!hasUpdate) {
+      toast.info('Sistem sudah menggunakan versi terbaru')
+      return
+    }
+    syncMutation.mutate()
+  }
 
   const mutation = useMutation({
     mutationFn: updateAppSettings,
@@ -520,24 +556,36 @@ export default function SettingsGeneralPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/40">
-            <Button
-              size="sm"
-              onClick={() => syncMutation.mutate()}
-              disabled={syncMutation.isPending}
-              className="btn-primary-theme h-8 text-xs gap-1.5 shadow-xs"
-            >
-              <RefreshCw className={cn('size-3.5', syncMutation.isPending && 'animate-spin')} />
-              <span>{syncMutation.isPending ? 'Menyinkronkan…' : 'Sinkronkan Sistem'}</span>
-            </Button>
+            {hasUpdate ? (
+              <Button
+                size="sm"
+                onClick={handleSync}
+                disabled={syncMutation.isPending}
+                className="btn-primary-theme h-8 text-xs gap-1.5 shadow-xs"
+              >
+                <RefreshCw className={cn('size-3.5', syncMutation.isPending && 'animate-spin')} />
+                <span>{syncMutation.isPending ? 'Menyinkronkan…' : 'Perbarui Sistem'}</span>
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                disabled
+                className="h-8 text-xs gap-1.5 opacity-80 cursor-not-allowed bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-semibold"
+                title="Sistem sudah berada di versi terbaru (tidak ada pembaruan di GitHub)"
+              >
+                <CheckCircle2 className="size-3.5 text-emerald-500" />
+                <span>Sudah Versi Terbaru</span>
+              </Button>
+            )}
             <Button
               size="sm"
               variant="outline"
-              onClick={() => void refetchVersion()}
+              onClick={handleCheckUpdateManual}
               disabled={isRefetching}
               className="h-8 text-xs gap-1.5"
             >
               <RefreshCw className={cn('size-3', isRefetching && 'animate-spin')} />
-              <span>Cek Pembaruan</span>
+              <span>{isRefetching ? 'Memeriksa…' : 'Cek Pembaruan'}</span>
             </Button>
             <Button
               size="sm"

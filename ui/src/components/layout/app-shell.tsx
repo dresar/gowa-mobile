@@ -44,6 +44,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { PasskeyDialog } from '@/features/session/passkey-dialog'
 import { useDevices } from '@/hooks/use-devices'
+import { getSystemVersion } from '@/api/settings'
 import { cn } from '@/lib/utils'
 import { useConnection } from '@/stores/connection'
 
@@ -302,20 +303,27 @@ export function AppShell() {
   const [isUpdating, setIsUpdating] = useState(false)
   const handleCheckUpdate = async () => {
     setIsUpdating(true)
-    toast.info('Memeriksa pembaruan...')
+    toast.info('Memeriksa ketersediaan pembaruan...')
     try {
-      if ('caches' in window) {
-        const keys = await caches.keys()
-        await Promise.all(keys.map((k) => caches.delete(k)))
-      }
-      setTimeout(() => {
+      const ver = await getSystemVersion()
+      const hasNew = Boolean(ver?.has_update || (ver?.incoming_commits && ver.incoming_commits.length > 0))
+      if (hasNew) {
+        if ('caches' in window) {
+          const keys = await caches.keys()
+          await Promise.all(keys.map((k) => caches.delete(k)))
+        }
+        toast.success('Pembaruan baru ditemukan! Memuat ulang antarmuka...')
+        setTimeout(() => {
+          setIsUpdating(false)
+          window.location.reload()
+        }, 700)
+      } else {
         setIsUpdating(false)
-        toast.success('Aplikasi telah diperbarui')
-        window.location.reload()
-      }, 700)
+        toast.info('Aplikasi sudah menggunakan versi terbaru')
+      }
     } catch {
       setIsUpdating(false)
-      window.location.reload()
+      toast.info('Aplikasi sudah menggunakan versi terbaru')
     }
   }
   const mainRef = useRef<HTMLElement>(null)

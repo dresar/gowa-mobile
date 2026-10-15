@@ -88,6 +88,8 @@ export interface SyncSystemResult {
   latest_commit: string
   recent_commits?: CommitItem[]
   ui_updated?: boolean
+  has_new_update?: boolean
+  already_up_to_date?: boolean
 }
 
 export function getSystemVersion(): Promise<SystemVersionInfo> {
