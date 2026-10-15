@@ -64,11 +64,15 @@ function markNotified(id: string): void {
   notifiedMessageCache.set(id, Date.now())
 }
 
-function notify(title: string, body: string, tag: string) {
-  const mobile = (window as any).GoWAMobile
+export function notify(title: string, body: string, tag: string) {
+  const mobile = (window as any).GoWAMobile || (window as any).Android
   if (mobile && typeof mobile.showNotification === 'function') {
-    mobile.showNotification(title, body, tag)
-    return
+    try {
+      mobile.showNotification(title, body, tag)
+      return
+    } catch (err) {
+      console.error('Error calling mobile showNotification', err)
+    }
   }
   if (typeof window !== 'undefined' && 'Notification' in window) {
     if (Notification.permission === 'granted') {
@@ -95,9 +99,10 @@ function useBootstrap() {
     if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
       void Notification.requestPermission()
     }
-    if ((window as any).GoWAMobile?.requestNotificationPermission) {
+    const mobile = (window as any).GoWAMobile || (window as any).Android
+    if (mobile?.requestNotificationPermission) {
       try {
-        (window as any).GoWAMobile.requestNotificationPermission()
+        mobile.requestNotificationPermission()
       } catch {}
     }
   }, [])
@@ -167,7 +172,7 @@ function useBootstrap() {
             const msgTime = Number(data.timestamp) || 0
             if (msgTime > 0) {
               const diffMs = Math.abs(now - msgTime)
-              if (diffMs > 35000) {
+              if (diffMs > 5 * 60 * 1000) {
                 break
               }
             }

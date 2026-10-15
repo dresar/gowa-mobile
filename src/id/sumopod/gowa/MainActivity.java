@@ -12,6 +12,8 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
+import android.media.AudioAttributes;
+import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -54,8 +56,8 @@ public class MainActivity extends Activity {
     private static final int FILE_CHOOSER_RESULT_CODE = 1001;
     private static final String PREFS_NAME = "gowa_mobile_prefs";
     private static final String KEY_SERVER_URL = "server_url";
-    private static final String CHANNEL_ID = "gowa_notifications";
-    private static final String CHANNEL_NAME = "GoWA Notifikasi";
+    private static final String CHANNEL_ID = "gowa_messages_v2";
+    private static final String CHANNEL_NAME = "GoWA Pesan & Notifikasi";
     private static final int PERMISSION_REQUEST_POST_NOTIFICATIONS = 2001;
 
     public class MobileBridge {
@@ -81,11 +83,19 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public String getAppVersion() {
-            return "1.1.5";
+            return "1.1.6";
         }
 
         @JavascriptInterface
         public boolean isNative() {
+            return true;
+        }
+
+        @JavascriptInterface
+        public boolean hasNotificationPermission() {
+            if (Build.VERSION.SDK_INT >= 33) {
+                return checkSelfPermission("android.permission.POST_NOTIFICATIONS") == PackageManager.PERMISSION_GRANTED;
+            }
             return true;
         }
 
@@ -177,7 +187,7 @@ public class MainActivity extends Activity {
         }
 
         String defaultUa = settings.getUserAgentString();
-        settings.setUserAgentString((defaultUa != null ? defaultUa : "") + " GoWAMobile/1.1.4");
+        settings.setUserAgentString((defaultUa != null ? defaultUa : "") + " GoWAMobile/1.1.6");
 
         MobileBridge bridge = new MobileBridge();
         webView.addJavascriptInterface(bridge, "GoWAMobile");
@@ -457,8 +467,17 @@ public class MainActivity extends Activity {
         notifyConnectionError("Server tidak merespons");
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        initNotificationChannel();
+    }
+
     private void initNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm == null) return;
+
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID,
                     CHANNEL_NAME,
@@ -471,10 +490,15 @@ public class MainActivity extends Activity {
             channel.setVibrationPattern(new long[]{0, 250, 200, 250});
             channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
             channel.setShowBadge(true);
-            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-            if (nm != null) {
-                nm.createNotificationChannel(channel);
-            }
+
+            Uri soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT)
+                    .build();
+            channel.setSound(soundUri, audioAttributes);
+
+            nm.createNotificationChannel(channel);
         }
     }
 
@@ -486,8 +510,19 @@ public class MainActivity extends Activity {
         }
     }
 
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == PERMISSION_REQUEST_POST_NOTIFICATIONS) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                initNotificationChannel();
+            }
+        }
+    }
+
     public void displayNotification(String title, String body, String type) {
         try {
+            initNotificationChannel();
             NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
             if (nm == null) return;
 
@@ -499,10 +534,7 @@ public class MainActivity extends Activity {
             }
             PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, pendingFlags);
 
-            int iconId = getResources().getIdentifier("ic_launcher", "mipmap", getPackageName());
-            if (iconId == 0) {
-                iconId = android.R.drawable.ic_dialog_info;
-            }
+            int iconId = android.R.drawable.stat_notify_chat;
 
             Notification.Builder builder;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -519,12 +551,28 @@ public class MainActivity extends Activity {
                    .setContentIntent(pendingIntent)
                    .setAutoCancel(true);
 
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                builder.setCategory(Notification.CATEGORY_MESSAGE);
+                builder.setVisibility(Notification.VISIBILITY_PUBLIC);
+                builder.setPriority(Notification.PRIORITY_HIGH);
+            }
+
+            Uri soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            builder.setSound(soundUri);
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
                 builder.setStyle(new Notification.BigTextStyle().bigText(body));
             }
 
+            try {
+                Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+                if (v != null && v.hasVibrator()) {
+                    v.vibrate(200);
+                }
+            } catch (Exception ignored) {}
+
             String tag = (type != null && !type.trim().isEmpty()) ? type.trim() : "gowa";
-            int notifId = Math.abs(tag.hashCode() % 1000000000);
+            int notifId = (int) (System.currentTimeMillis() % 1000000000L);
             nm.notify(tag, notifId, builder.build());
         } catch (Exception e) {
             e.printStackTrace();

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowDownCircle,
+  Bell,
   CheckCircle2,
   Clock,
   FileArchive,
@@ -17,6 +18,7 @@ import {
   Smartphone,
   Sparkles,
   User,
+  Volume2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DownloadDialog } from '@/components/layout/download-dialog'
@@ -175,6 +177,109 @@ export default function SettingsGeneralPage() {
 
   const handleReloadUI = () => {
     window.location.reload()
+  }
+
+  const checkNotifPermissionText = () => {
+    const mobile = (window as any).GoWAMobile || (window as any).Android
+    if (mobile) {
+      if (typeof mobile.hasNotificationPermission === 'function') {
+        const allowed = mobile.hasNotificationPermission()
+        return allowed ? (
+          <span className="text-emerald-500 flex items-center gap-1">
+            <CheckCircle2 className="size-3.5" /> Diizinkan di Android
+          </span>
+        ) : (
+          <span className="text-amber-500 flex items-center gap-1">Belum Diizinkan</span>
+        )
+      }
+      return (
+        <span className="text-emerald-500 flex items-center gap-1">
+          <CheckCircle2 className="size-3.5" /> Aktif di Android
+        </span>
+      )
+    }
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+        return (
+          <span className="text-emerald-500 flex items-center gap-1">
+            <CheckCircle2 className="size-3.5" /> Diizinkan (Aktif)
+          </span>
+        )
+      }
+      if (Notification.permission === 'denied') {
+        return <span className="text-rose-500 flex items-center gap-1">Diblokir oleh Browser</span>
+      }
+      return <span className="text-amber-500 flex items-center gap-1">Menunggu Izin</span>
+    }
+    return <span className="text-muted-foreground">Tidak Didukung</span>
+  }
+
+  const handleTestNotification = () => {
+    const mobile = (window as any).GoWAMobile || (window as any).Android
+    if (mobile && typeof mobile.showNotification === 'function') {
+      try {
+        mobile.showNotification(
+          'GoWA Tes Notifikasi',
+          'Notifikasi pesan masuk personal berhasil aktif dengan suara & getar!',
+          'test_notif'
+        )
+        if (typeof mobile.vibrate === 'function') {
+          mobile.vibrate(250)
+        }
+        toast.success('Notifikasi tes berhasil dikirim ke layar!')
+        return
+      } catch (err) {
+        console.error('Error invoking mobile showNotification', err)
+      }
+    }
+
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+        try {
+          new Notification('GoWA Tes Notifikasi', {
+            body: 'Notifikasi browser GoWA aktif dan berfungsi!',
+            tag: 'test_notif',
+          })
+          toast.success('Notifikasi tes berhasil ditampilkan!')
+        } catch (e: any) {
+          toast.error('Gagal menampilkan notifikasi: ' + e?.message)
+        }
+      } else {
+        Notification.requestPermission().then((perm) => {
+          if (perm === 'granted') {
+            new Notification('GoWA Tes Notifikasi', {
+              body: 'Notifikasi browser GoWA aktif dan berfungsi!',
+              tag: 'test_notif',
+            })
+            toast.success('Izin berhasil diaktifkan & notifikasi tes dikirim!')
+          } else {
+            toast.error('Izin notifikasi belum diaktifkan di browser!')
+          }
+        })
+      }
+    } else {
+      toast.error('Perangkat ini tidak mendukung Web Notification API')
+    }
+  }
+
+  const handleRequestPermission = () => {
+    const mobile = (window as any).GoWAMobile || (window as any).Android
+    if (mobile?.requestNotificationPermission) {
+      mobile.requestNotificationPermission()
+      toast.info('Meminta izin notifikasi ke sistem Android...')
+      return
+    }
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      Notification.requestPermission().then((perm) => {
+        if (perm === 'granted') {
+          toast.success('Izin notifikasi berhasil diberikan!')
+        } else {
+          toast.error('Izin notifikasi ditolak!')
+        }
+      })
+    } else {
+      toast.info('Izin notifikasi tidak tersedia di platform ini')
+    }
   }
 
   if (isLoading) {
@@ -377,16 +482,93 @@ export default function SettingsGeneralPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                <Bell className="size-4 text-primary" />
+                <span>Notifikasi & Getar Real-time</span>
+                <InfoHint
+                  title="Notifikasi Masuk GoWA"
+                  description="Pengaturan dan verifikasi notifikasi instan untuk pesan personal WhatsApp."
+                  items={[
+                    'Notifikasi heads-up langsung berbunyi dan bergetar ketika ada chat masuk personal.',
+                    'Pesan grup, status/cerita WA, dan siaran otomatis disaring tanpa notifikasi untuk mencegah spam.',
+                    'Gunakan tombol "Tes Notifikasi" untuk menguji apakah sistem Android/browser Anda berhasil membunyikan notifikasi.',
+                  ]}
+                />
+              </CardTitle>
+              <CardDescription className="text-xs mt-0.5">
+                Uji langsung dering, getaran, dan status izin notifikasi di perangkat ini.
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-1.5 self-start sm:self-auto">
+              <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-mono">
+                Heads-up Audio v2
+              </Badge>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <div className="border-border/50 bg-muted/20 flex flex-col gap-1 rounded-lg border p-2.5">
+              <span className="text-muted-foreground text-[11px]">Mode Perangkat</span>
+              <span className="font-semibold text-foreground text-xs flex items-center gap-1.5">
+                {(window as any).GoWAMobile || (window as any).Android ? (
+                  <>
+                    <Smartphone className="size-3.5 text-emerald-500" />
+                    <span>Android Native App (GoWA Mobile v1.1.6)</span>
+                  </>
+                ) : (
+                  <>
+                    <Monitor className="size-3.5 text-blue-500" />
+                    <span>Web Browser / Desktop</span>
+                  </>
+                )}
+              </span>
+            </div>
+            <div className="border-border/50 bg-muted/20 flex flex-col gap-1 rounded-lg border p-2.5">
+              <span className="text-muted-foreground text-[11px]">Status Izin Notifikasi</span>
+              <span className="font-semibold text-foreground text-xs flex items-center gap-1.5">
+                {checkNotifPermissionText()}
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/40">
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleTestNotification}
+              className="btn-primary-theme h-8 text-xs gap-1.5 shadow-xs"
+            >
+              <Volume2 className="size-3.5" />
+              <span>Tes Notifikasi (Dering & Getar)</span>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleRequestPermission}
+              className="h-8 text-xs gap-1.5"
+            >
+              <Bell className="size-3.5 text-primary" />
+              <span>Minta Izin Notifikasi</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="glass-card rounded-xl">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-sm font-semibold">
                 <Package className="size-4 text-primary" />
                 <span>Paket Aplikasi & Unduhan (Android & Windows)</span>
                 <InfoHint
                   title="Aplikasi GoWA Multi-Platform"
                   description="Paket build aplikasi mandiri untuk Android APK dan Windows x64."
                   items={[
-                    'Android APK v1.1.4: Dilengkapi UI React tertanam dan notifikasi chat personal.',
+                    'Android APK v1.1.6: Dilengkapi notifikasi heads-up suara & getar untuk chat masuk personal.',
                     'Windows x64 ZIP: Paket portable mandiri dengan run.bat dan UI bawaan.',
                     'Windows Standalone EXE: Binary GoWA core tanpa CGO (Pure Go SQLite).',
-                    'Riwayat Rilis: Semua versi sebelumnya (v1.1.0, v1.1.2, v1.1.3, v1.1.4) tetap tersimpan dan dapat diunduh.',
+                    'Riwayat Rilis: Semua versi sebelumnya (v1.1.0, v1.1.2, v1.1.3, v1.1.4, v1.1.5, v1.1.6) tetap tersimpan dan dapat diunduh.',
                   ]}
                 />
               </CardTitle>
@@ -396,7 +578,7 @@ export default function SettingsGeneralPage() {
             </div>
             <div className="flex items-center gap-1.5 self-start sm:self-auto">
               <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-mono">
-                v1.1.4 Terbaru
+                v1.1.6 Terbaru
               </Badge>
               <Badge variant="outline" className="text-[10px] font-mono">
                 PureGo SQLite
@@ -407,8 +589,8 @@ export default function SettingsGeneralPage() {
         <CardContent className="flex flex-col gap-3">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
             <div className="border-border/50 bg-muted/20 flex flex-col gap-1 rounded-lg border p-2.5">
-              <span className="text-muted-foreground text-[11px]">Android APK (v1.1.4)</span>
-              <span className="font-semibold text-foreground text-xs">1.05 MB • Android 5.0 – 15</span>
+              <span className="text-muted-foreground text-[11px]">Android APK (v1.1.6)</span>
+              <span className="font-semibold text-foreground text-xs">1.08 MB • Android 5.0 – 15</span>
             </div>
             <div className="border-border/50 bg-muted/20 flex flex-col gap-1 rounded-lg border p-2.5">
               <span className="text-muted-foreground text-[11px]">Windows x64 Paket (ZIP)</span>
@@ -421,23 +603,23 @@ export default function SettingsGeneralPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/40">
             <a
-              href="/statics/releases/v1.1.4/gowa-v1.1.4.apk"
-              download="gowa-v1.1.4.apk"
+              href="/statics/releases/v1.1.6/gowa-v1.1.6.apk"
+              download="gowa-v1.1.6.apk"
               className="inline-flex items-center gap-1.5 px-3 h-8 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-xs"
             >
               <Smartphone className="size-3.5" />
               <span>Unduh APK Mobile (1.0 MB)</span>
             </a>
             <a
-              href="/statics/releases/v1.1.4/gowa-v1.1.4-windows-amd64.zip"
-              download="gowa-v1.1.4-windows-amd64.zip"
+              href="/statics/releases/v1.1.6/gowa-v1.1.6-windows-amd64.zip"
+              download="gowa-v1.1.6-windows-amd64.zip"
               className="inline-flex items-center gap-1.5 px-3 h-8 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-xs"
             >
               <FileArchive className="size-3.5" />
               <span>Unduh Paket Windows ZIP (12 MB)</span>
             </a>
             <a
-              href="/statics/releases/v1.1.4/gowa-v1.1.4-windows-amd64.exe"
+              href="/statics/releases/v1.1.6/gowa-v1.1.6-windows-amd64.exe"
               download="gowa.exe"
               className="inline-flex items-center gap-1.5 px-3 h-8 text-xs font-semibold rounded-lg border border-border bg-card hover:bg-muted transition-colors text-foreground"
             >
