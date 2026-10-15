@@ -2,9 +2,14 @@ package id.sumopod.gowa;
 
 import android.app.Activity;
 import android.app.DownloadManager;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
@@ -49,6 +54,9 @@ public class MainActivity extends Activity {
     private static final int FILE_CHOOSER_RESULT_CODE = 1001;
     private static final String PREFS_NAME = "gowa_mobile_prefs";
     private static final String KEY_SERVER_URL = "server_url";
+    private static final String CHANNEL_ID = "gowa_notifications";
+    private static final String CHANNEL_NAME = "GoWA Notifikasi";
+    private static final int PERMISSION_REQUEST_POST_NOTIFICATIONS = 2001;
 
     public class MobileBridge {
         @JavascriptInterface
@@ -73,7 +81,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public String getAppVersion() {
-            return "1.1.0";
+            return "1.1.2";
         }
 
         @JavascriptInterface
@@ -91,6 +99,16 @@ public class MainActivity extends Activity {
         public String getServerUrl() {
             SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
             return prefs.getString(KEY_SERVER_URL, "");
+        }
+
+        @JavascriptInterface
+        public void showNotification(final String title, final String body, final String type) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    displayNotification(title, body, type);
+                }
+            });
         }
     }
 
@@ -122,6 +140,9 @@ public class MainActivity extends Activity {
         rootLayout.addView(errorView, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
+        initNotificationChannel();
+        requestNotificationPermission();
+
         webView.loadUrl("file:///android_asset/index.html");
     }
 
@@ -146,7 +167,7 @@ public class MainActivity extends Activity {
         }
 
         String defaultUa = settings.getUserAgentString();
-        settings.setUserAgentString((defaultUa != null ? defaultUa : "") + " GoWAMobile/1.1.0");
+        settings.setUserAgentString((defaultUa != null ? defaultUa : "") + " GoWAMobile/1.1.2");
 
         MobileBridge bridge = new MobileBridge();
         webView.addJavascriptInterface(bridge, "GoWAMobile");
@@ -189,8 +210,13 @@ public class MainActivity extends Activity {
             @Override
             public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
                 super.onReceivedError(view, errorCode, description, failingUrl);
-                if (failingUrl != null && !failingUrl.startsWith("file:///android_asset/")) {
-                    showErrorScreen();
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+                    if (failingUrl != null && !failingUrl.startsWith("file:///android_asset/")) {
+                        String currentUrl = view.getUrl();
+                        if (currentUrl != null && currentUrl.equals(failingUrl)) {
+                            showErrorScreen();
+                        }
+                    }
                 }
             }
 
@@ -368,7 +394,12 @@ public class MainActivity extends Activity {
                 errorView.setVisibility(View.GONE);
                 splashView.setAlpha(1f);
                 splashView.setVisibility(View.VISIBLE);
-                webView.reload();
+                String currentUrl = webView.getUrl();
+                if (currentUrl == null || currentUrl.isEmpty() || !currentUrl.startsWith("file:///android_asset/")) {
+                    webView.loadUrl("file:///android_asset/index.html");
+                } else {
+                    webView.reload();
+                }
             }
         });
 
@@ -377,6 +408,34 @@ public class MainActivity extends Activity {
         btnParams.topMargin = dpToPx(20);
         btnParams.gravity = Gravity.CENTER_HORIZONTAL;
         errorView.addView(retryBtn, btnParams);
+
+        Button configBtn = new Button(this);
+        configBtn.setText("Buka Pengaturan Koneksi");
+        configBtn.setTextColor(0xFF38BDF8);
+        configBtn.setTextSize(13);
+        configBtn.setTypeface(null, android.graphics.Typeface.BOLD);
+        GradientDrawable configBg = new GradientDrawable();
+        configBg.setColor(0xFF1E293B);
+        configBg.setStroke(dpToPx(1), 0xFF334155);
+        configBg.setCornerRadius(dpToPx(8));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+            configBtn.setBackground(configBg);
+        } else {
+            configBtn.setBackgroundDrawable(configBg);
+        }
+        configBtn.setPadding(dpToPx(20), dpToPx(10), dpToPx(20), dpToPx(10));
+        configBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                errorView.setVisibility(View.GONE);
+                webView.loadUrl("file:///android_asset/index.html#/connect");
+            }
+        });
+        LinearLayout.LayoutParams configParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        configParams.topMargin = dpToPx(12);
+        configParams.gravity = Gravity.CENTER_HORIZONTAL;
+        errorView.addView(configBtn, configParams);
     }
 
     private void showErrorScreen() {
@@ -391,6 +450,74 @@ public class MainActivity extends Activity {
                 }
             }
         });
+    }
+
+    private void initNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID,
+                    CHANNEL_NAME,
+                    NotificationManager.IMPORTANCE_HIGH
+            );
+            channel.setDescription("Notifikasi pesan WhatsApp personal dan penjadwalan pesan GoWA");
+            channel.enableLights(true);
+            channel.setLightColor(0xFF10B981);
+            channel.enableVibration(true);
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) {
+                nm.createNotificationChannel(channel);
+            }
+        }
+    }
+
+    private void requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            if (checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, PERMISSION_REQUEST_POST_NOTIFICATIONS);
+            }
+        }
+    }
+
+    public void displayNotification(String title, String body, String type) {
+        try {
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm == null) return;
+
+            Intent intent = new Intent(this, MainActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            int pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                pendingFlags |= PendingIntent.FLAG_IMMUTABLE;
+            }
+            PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, pendingFlags);
+
+            int iconId = getResources().getIdentifier("ic_launcher", "mipmap", getPackageName());
+            if (iconId == 0) {
+                iconId = android.R.drawable.ic_dialog_info;
+            }
+
+            Notification.Builder builder;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                builder = new Notification.Builder(this, CHANNEL_ID);
+            } else {
+                builder = new Notification.Builder(this);
+            }
+
+            builder.setContentTitle(title)
+                   .setContentText(body)
+                   .setSmallIcon(iconId)
+                   .setContentIntent(pendingIntent)
+                   .setAutoCancel(true);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+                builder.setStyle(new Notification.BigTextStyle().bigText(body));
+            }
+
+            int notifId = (int) (System.currentTimeMillis() % 1000000000L);
+            nm.notify(notifId, builder.build());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private int dpToPx(int dp) {

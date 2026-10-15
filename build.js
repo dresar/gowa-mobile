@@ -4,7 +4,11 @@ const { execFileSync, spawnSync } = require('child_process')
 
 const rootDir = path.resolve(__dirname, '..')
 const mobileDir = __dirname
-const uiDir = path.resolve(rootDir, 'golangwaui')
+const uiDirCandidates = [
+  path.resolve(rootDir, 'gowa-ui'),
+  path.resolve(rootDir, 'golangwaui'),
+]
+const uiDir = uiDirCandidates.find((d) => fs.existsSync(d)) || path.resolve(rootDir, 'gowa-ui')
 
 let sharp
 let AdmZip
@@ -19,24 +23,60 @@ try {
   AdmZip = require(path.resolve(uiDir, 'node_modules/adm-zip'))
 }
 
-const sdkDir = 'C:\\Users\\NCN0C\\AppData\\Local\\Android\\Sdk'
-const buildToolsDir = path.join(sdkDir, 'build-tools\\36.0.0')
-const platformJar = path.join(sdkDir, 'platforms\\android-34\\android.jar')
-const jdkHome = 'C:\\Users\\NCN0C\\.jdks\\openjdk-26.0.1'
+const isWin = process.platform === 'win32'
+const linuxSdk = '/opt/data/home/.local/android-sdk'
+const linuxJdk = '/opt/data/home/.local/jdk-17'
+
+const sdkDir = isWin
+  ? process.env.ANDROID_HOME || 'C:\\Users\\NCN0C\\AppData\\Local\\Android\\Sdk'
+  : process.env.ANDROID_HOME || (fs.existsSync(linuxSdk) ? linuxSdk : '/opt/android-sdk')
+
+const buildToolsVersion = fs.existsSync(path.join(sdkDir, 'build-tools/34.0.0'))
+  ? '34.0.0'
+  : (fs.existsSync(path.join(sdkDir, 'build-tools/36.0.0')) ? '36.0.0' : '34.0.0')
+
+const buildToolsDir = path.join(sdkDir, 'build-tools', buildToolsVersion)
+const platformJar = path.join(sdkDir, 'platforms', 'android-34', 'android.jar')
+const jdkHome = isWin
+  ? process.env.JAVA_HOME || 'C:\\Users\\NCN0C\\.jdks\\openjdk-26.0.1'
+  : process.env.JAVA_HOME || (fs.existsSync(linuxJdk) ? linuxJdk : '/usr/lib/jvm/java-17-openjdk')
 const jdkBin = path.join(jdkHome, 'bin')
 
 process.env.JAVA_HOME = jdkHome
-process.env.PATH = `${jdkBin};${buildToolsDir};${process.env.PATH}`
+process.env.PATH = `${jdkBin}${path.delimiter}${buildToolsDir}${path.delimiter}${process.env.PATH}`
 
-const aapt2 = path.join(buildToolsDir, 'aapt2.exe')
-const zipalign = path.join(buildToolsDir, 'zipalign.exe')
-const apksigner = path.join(buildToolsDir, 'apksigner.bat')
-const d8 = path.join(buildToolsDir, 'd8.bat')
-const javac = path.join(jdkBin, 'javac.exe')
-const keytool = path.join(jdkBin, 'keytool.exe')
+const aapt2 = path.join(buildToolsDir, isWin ? 'aapt2.exe' : 'aapt2')
+const zipalign = path.join(buildToolsDir, isWin ? 'zipalign.exe' : 'zipalign')
+const apksigner = path.join(buildToolsDir, isWin ? 'apksigner.bat' : 'apksigner')
+const d8 = path.join(buildToolsDir, isWin ? 'd8.bat' : 'd8')
+const javac = path.join(jdkBin, isWin ? 'javac.exe' : 'javac')
+const keytool = path.join(jdkBin, isWin ? 'keytool.exe' : 'keytool')
+
+function runTool(cmd, args, opts = {}) {
+  if (isWin && (cmd.endsWith('.bat') || cmd.endsWith('.cmd'))) {
+    return spawnSync('cmd.exe', ['/c', cmd, ...args], {
+      cwd: mobileDir,
+      env: process.env,
+      stdio: 'inherit',
+      ...opts,
+    })
+  }
+  return spawnSync(cmd, args, {
+    cwd: mobileDir,
+    env: process.env,
+    stdio: 'inherit',
+    ...opts,
+  })
+}
 
 async function generateDrawables() {
-  const logoPath = path.resolve(uiDir, 'src/assets/gowa-logo.webp')
+  const logoCandidates = [
+    path.resolve(uiDir, 'src/assets/gowa-logo.webp'),
+    path.resolve(uiDir, 'public/gowa-logo.webp'),
+  ]
+  const logoPath = logoCandidates.find((f) => fs.existsSync(f))
+  if (!logoPath) return
+
   const densities = [
     { name: 'mipmap-mdpi', size: 48 },
     { name: 'mipmap-hdpi', size: 72 },
@@ -89,7 +129,7 @@ async function generateDrawables() {
         bottom: Math.round(bannerHeight * 0.15),
         left: Math.round((bannerWidth - Math.round(size * 0.7)) / 2),
         right: Math.round((bannerWidth - Math.round(size * 0.7)) / 2),
-        background: { r: 11, g: 15, b: 25, alpha: 1 }
+        background: { r: 11, g: 15, b: 25, alpha: 1 },
       })
       .png({ compressionLevel: 8 })
       .toFile(path.join(dir, 'gowa_banner.png'))
@@ -109,7 +149,7 @@ async function build() {
 
   const distHtml = path.resolve(uiDir, 'dist/index.html')
   if (!fs.existsSync(distHtml)) {
-    throw new Error(`dist/index.html not found. Run pnpm build in golangwaui first.`)
+    throw new Error(`dist/index.html not found. Run npm run build in ${uiDir} first.`)
   }
 
   const assetsDir = path.join(mobileDir, 'assets')
@@ -146,9 +186,9 @@ async function build() {
       '--target-sdk-version',
       '34',
       '--version-code',
-      '2',
+      '3',
       '--version-name',
-      '1.1.0',
+      '1.1.2',
       '--manifest',
       manifestPath,
       '-R',
@@ -167,30 +207,18 @@ async function build() {
   )
 
   const javaSrc = path.join(mobileDir, 'src/id/sumopod/gowa/MainActivity.java')
-  execFileSync(
-    javac,
-    ['--release', '8', '-cp', platformJar, '-d', classesDir, javaSrc],
-    {
-      cwd: mobileDir,
-      env: process.env,
-      stdio: 'inherit',
-    }
-  )
+  execFileSync(javac, ['--release', '8', '-cp', platformJar, '-d', classesDir, javaSrc], {
+    cwd: mobileDir,
+    env: process.env,
+    stdio: 'inherit',
+  })
 
   const classFiles = fs
     .readdirSync(path.join(classesDir, 'id/sumopod/gowa'))
     .filter((f) => f.endsWith('.class'))
     .map((f) => path.join(classesDir, 'id/sumopod/gowa', f))
 
-  const d8Res = spawnSync(
-    'cmd.exe',
-    ['/c', d8, '--min-api', '21', '--lib', platformJar, '--output', dexDir, ...classFiles],
-    {
-      cwd: mobileDir,
-      env: process.env,
-      stdio: 'inherit',
-    }
-  )
+  const d8Res = runTool(d8, ['--min-api', '21', '--lib', platformJar, '--output', dexDir, ...classFiles])
   if (d8Res.status !== 0) {
     throw new Error(`D8 compilation failed with exit code ${d8Res.status}`)
   }
@@ -235,54 +263,48 @@ async function build() {
   }
 
   const outputApk = path.join(mobileDir, 'gowa.apk')
-  const signRes = spawnSync(
-    'cmd.exe',
-    [
-      '/c',
-      apksigner,
-      'sign',
-      '--v1-signing-enabled',
-      'true',
-      '--v2-signing-enabled',
-      'true',
-      '--v3-signing-enabled',
-      'true',
-      '--min-sdk-version',
-      '21',
-      '--ks',
-      keystore,
-      '--ks-pass',
-      'pass:android',
-      '--key-pass',
-      'pass:android',
-      '--out',
-      outputApk,
-      alignedApk,
-    ],
-    { cwd: mobileDir, env: process.env, stdio: 'inherit' }
-  )
+  const signRes = runTool(apksigner, [
+    'sign',
+    '--v1-signing-enabled',
+    'true',
+    '--v2-signing-enabled',
+    'true',
+    '--v3-signing-enabled',
+    'true',
+    '--min-sdk-version',
+    '21',
+    '--ks',
+    keystore,
+    '--ks-pass',
+    'pass:android',
+    '--key-pass',
+    'pass:android',
+    '--out',
+    outputApk,
+    alignedApk,
+  ])
   if (signRes.status !== 0) {
     throw new Error(`APK signing failed with exit code ${signRes.status}`)
   }
 
-  const verifyRes = spawnSync('cmd.exe', ['/c', apksigner, 'verify', '--verbose', outputApk], {
-    cwd: mobileDir,
-    env: process.env,
-    stdio: 'inherit',
-  })
+  const verifyRes = runTool(apksigner, ['verify', '--verbose', outputApk])
   if (verifyRes.status !== 0) {
     throw new Error(`APK verification failed with exit code ${verifyRes.status}`)
   }
 
   const targetDirs = [
+    path.resolve(rootDir, 'gowanew/statics'),
+    path.resolve(rootDir, 'gowanew/src/storages/statics'),
+    path.resolve(rootDir, 'gowa-ui/public/statics'),
     path.resolve(rootDir, 'golangwa/statics'),
-    path.resolve(rootDir, 'golangwa/src/storages/statics'),
     path.resolve(rootDir, 'golangwaui/public/statics'),
   ]
 
   for (const dir of targetDirs) {
-    fs.mkdirSync(dir, { recursive: true })
-    fs.copyFileSync(outputApk, path.join(dir, 'gowa.apk'))
+    if (fs.existsSync(path.dirname(dir))) {
+      fs.mkdirSync(dir, { recursive: true })
+      fs.copyFileSync(outputApk, path.join(dir, 'gowa.apk'))
+    }
   }
 
   const stat = fs.statSync(outputApk)
