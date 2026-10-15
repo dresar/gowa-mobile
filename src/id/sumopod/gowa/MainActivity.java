@@ -110,6 +110,16 @@ public class MainActivity extends Activity {
                 }
             });
         }
+
+        @JavascriptInterface
+        public void requestNotificationPermission() {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    MainActivity.this.requestNotificationPermission();
+                }
+            });
+        }
     }
 
     @Override
@@ -463,6 +473,9 @@ public class MainActivity extends Activity {
             channel.enableLights(true);
             channel.setLightColor(0xFF10B981);
             channel.enableVibration(true);
+            channel.setVibrationPattern(new long[]{0, 250, 200, 250});
+            channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+            channel.setShowBadge(true);
             NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
             if (nm != null) {
                 nm.createNotificationChannel(channel);
@@ -480,6 +493,14 @@ public class MainActivity extends Activity {
 
     public void displayNotification(String title, String body, String type) {
         try {
+            try {
+                Toast.makeText(this, title + ": " + body, Toast.LENGTH_SHORT).show();
+                Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+                if (v != null && v.hasVibrator()) {
+                    v.vibrate(200);
+                }
+            } catch (Exception ignored) {}
+
             NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
             if (nm == null) return;
 
@@ -501,6 +522,8 @@ public class MainActivity extends Activity {
                 builder = new Notification.Builder(this, CHANNEL_ID);
             } else {
                 builder = new Notification.Builder(this);
+                builder.setDefaults(Notification.DEFAULT_ALL);
+                builder.setPriority(Notification.PRIORITY_HIGH);
             }
 
             builder.setContentTitle(title)
