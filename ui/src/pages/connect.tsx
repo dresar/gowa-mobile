@@ -38,7 +38,12 @@ export default function ConnectPage() {
       Boolean((window as unknown as { isGowaApk?: boolean }).isGowaApk))
 
   const initialServer =
-    baseUrl ||
+    (baseUrl &&
+    !baseUrl.includes('trycloudflare.com') &&
+    !baseUrl.includes('serverinka.cloud') &&
+    !baseUrl.includes('localhost:3000')
+      ? baseUrl
+      : '') ||
     sameOriginBaseUrl() ||
     'https://agentai.my.id'
 
@@ -61,7 +66,20 @@ export default function ConnectPage() {
         (window as any).GoWAMobile?.getServerUrl?.() ||
         (window as any).Android?.getServerUrl?.()
       if (nativeUrl && String(nativeUrl).trim()) {
-        setEndpointInput(String(nativeUrl).trim())
+        const clean = String(nativeUrl).trim()
+        if (
+          clean.includes('trycloudflare.com') ||
+          clean.includes('serverinka.cloud') ||
+          clean.includes('localhost:3000')
+        ) {
+          setEndpointInput('https://agentai.my.id')
+          try {
+            ;(window as any).GoWAMobile?.saveServerUrl?.('https://agentai.my.id') ||
+              (window as any).Android?.saveServerUrl?.('https://agentai.my.id')
+          } catch {}
+        } else {
+          setEndpointInput(clean)
+        }
       }
     } catch {}
   }, [])

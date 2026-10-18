@@ -101,14 +101,22 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void saveServerUrl(String url) {
+            if (url == null || url.trim().isEmpty() || url.contains("trycloudflare.com") || url.contains("serverinka.cloud") || url.contains("localhost:3000")) {
+                url = "https://agentai.my.id";
+            }
             SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-            prefs.edit().putString(KEY_SERVER_URL, url).apply();
+            prefs.edit().putString(KEY_SERVER_URL, url.trim()).apply();
         }
 
         @JavascriptInterface
         public String getServerUrl() {
             SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-            return prefs.getString(KEY_SERVER_URL, "https://agentai.my.id");
+            String url = prefs.getString(KEY_SERVER_URL, "https://agentai.my.id");
+            if (url == null || url.trim().isEmpty() || url.contains("trycloudflare.com") || url.contains("serverinka.cloud") || url.contains("localhost:3000")) {
+                url = "https://agentai.my.id";
+                prefs.edit().putString(KEY_SERVER_URL, url).apply();
+            }
+            return url;
         }
 
         @JavascriptInterface
@@ -162,6 +170,12 @@ public class MainActivity extends Activity {
 
         initNotificationChannel();
         requestNotificationPermission();
+
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        String currentUrl = prefs.getString(KEY_SERVER_URL, null);
+        if (currentUrl == null || currentUrl.trim().isEmpty() || currentUrl.contains("trycloudflare.com") || currentUrl.contains("serverinka.cloud") || currentUrl.contains("localhost:3000")) {
+            prefs.edit().putString(KEY_SERVER_URL, "https://agentai.my.id").apply();
+        }
 
         webView.loadUrl("file:///android_asset/index.html");
     }

@@ -12,9 +12,9 @@ import {
   LayoutDashboard,
   Loader2,
   LogOut,
+  Megaphone,
   Menu,
   MessagesSquare,
-  Monitor,
   Palette,
   PhoneOff,
   Radio,
@@ -36,7 +36,6 @@ import {
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { toast } from 'sonner'
 import { DeviceSwitcher } from '@/components/layout/device-switcher'
-import { DownloadDialog } from '@/components/layout/download-dialog'
 import { Logo } from '@/components/layout/logo'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
 import { Button } from '@/components/ui/button'
@@ -76,6 +75,7 @@ const navGroups: NavGroup[] = [
     label: 'Pesan',
     items: [
       { to: '/messaging', label: 'Kirim Pesan', icon: Send },
+      { to: '/broadcast', label: 'Broadcast & Tools', icon: Megaphone },
       { to: '/scheduled', label: 'Terjadwal', icon: CalendarClock },
       { to: '/chats', label: 'Obrolan', icon: MessagesSquare },
     ],
@@ -290,7 +290,6 @@ export function AppShell() {
   const logout = useConnection((state) => state.logout)
   const location = useLocation()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
-  const [downloadDialogOpen, setDownloadDialogOpen] = useState(false)
   const isNativeApp =
     typeof window !== 'undefined' &&
     Boolean(
@@ -408,28 +407,7 @@ export function AppShell() {
         </ScrollArea>
 
         <div className="border-sidebar-border/70 shrink-0 border-t p-3 flex flex-col gap-2">
-          {!isNativeApp ? (
-            <div className="flex items-center gap-1.5 w-full">
-              <a
-                href="/statics/releases/v1.1.4/gowa-v1.1.4.apk"
-                download="gowa-v1.1.4.apk"
-                className="flex flex-1 items-center justify-center gap-1.5 h-8 text-xs font-semibold rounded-lg bg-emerald-600/15 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-600/25 transition-colors"
-                title="Download APK Mobile Android v1.1.4"
-              >
-                <Smartphone className="size-3.5" />
-                <span>APK (1.0 MB)</span>
-              </a>
-              <button
-                type="button"
-                onClick={() => setDownloadDialogOpen(true)}
-                className="flex items-center justify-center gap-1 px-2.5 h-8 text-xs font-semibold rounded-lg bg-blue-600/15 border border-blue-500/40 text-blue-600 dark:text-blue-400 hover:bg-blue-600/25 transition-colors cursor-pointer"
-                title="Unduh Windows EXE & Riwayat Rilis"
-              >
-                <Monitor className="size-3.5" />
-                <span>EXE / Rilis</span>
-              </button>
-            </div>
-          ) : (
+          {isNativeApp && (
             <button
               type="button"
               onClick={handleCheckUpdate}
@@ -477,29 +455,7 @@ export function AppShell() {
             <NavContent onNavigate={() => setMobileNavOpen(false)} />
           </ScrollArea>
           <div className="border-sidebar-border/70 border-t p-3 shrink-0 flex flex-col gap-2">
-            {!isNativeApp ? (
-              <div className="flex items-center gap-1.5 w-full">
-                <a
-                  href="/statics/releases/v1.1.4/gowa-v1.1.4.apk"
-                  download="gowa-v1.1.4.apk"
-                  className="flex flex-1 items-center justify-center gap-1.5 h-8 text-xs font-semibold rounded-lg bg-emerald-600/15 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-600/25 transition-colors"
-                >
-                  <Smartphone className="size-3.5" />
-                  <span>APK (1.0 MB)</span>
-                </a>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileNavOpen(false)
-                    setDownloadDialogOpen(true)
-                  }}
-                  className="flex items-center justify-center gap-1 px-2.5 h-8 text-xs font-semibold rounded-lg bg-blue-600/15 border border-blue-500/40 text-blue-600 dark:text-blue-400 hover:bg-blue-600/25 transition-colors cursor-pointer"
-                >
-                  <Monitor className="size-3.5" />
-                  <span>EXE / Rilis</span>
-                </button>
-              </div>
-            ) : (
+            {isNativeApp && (
               <button
                 type="button"
                 onClick={handleCheckUpdate}
@@ -510,15 +466,24 @@ export function AppShell() {
                 <span>{isUpdating ? 'Memperbarui...' : 'Periksa Pembaruan'}</span>
               </button>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => void logout()}
-              className="text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 h-8 justify-start gap-2 px-2 text-xs rounded-lg"
-            >
-              <LogOut className="size-3.5" />
-              <span>Keluar dari Akun</span>
-            </Button>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-muted-foreground flex flex-1 items-center justify-between rounded-lg border border-primary/20 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-2.5 py-1.5 text-[11px] backdrop-blur-xs">
+                <div className="flex items-center gap-1.5">
+                  <span className="size-1.5 rounded-full bg-primary shadow-xs shadow-primary/80" />
+                  <span>Core v9.6</span>
+                </div>
+                <span className="font-mono font-medium text-primary">PureGo</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => void logout()}
+                className="text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 h-8 gap-1.5 px-2.5 text-xs rounded-lg"
+              >
+                <LogOut className="size-3.5" />
+                <span>Keluar</span>
+              </Button>
+            </div>
           </div>
         </SheetContent>
       </Sheet>
@@ -558,29 +523,7 @@ export function AppShell() {
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
-            {!isNativeApp ? (
-              <div className="hidden sm:flex items-center gap-1.5">
-                <a
-                  href="/statics/releases/v1.1.4/gowa-v1.1.4.apk"
-                  download="gowa-v1.1.4.apk"
-                  title="Download APK Mobile Android v1.1.4 (1.0 MB)"
-                  className="inline-flex items-center gap-1.5 px-2.5 h-8 text-xs font-semibold rounded-lg bg-emerald-600/15 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-600/25 transition-colors shrink-0"
-                >
-                  <Smartphone className="size-3.5" />
-                  <span>APK (1.0 MB)</span>
-                </a>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setDownloadDialogOpen(true)}
-                  title="Unduh Windows EXE & Riwayat Versi"
-                  className="h-8 gap-1.5 px-2.5 text-xs font-semibold rounded-lg border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 shrink-0"
-                >
-                  <Monitor className="size-3.5" />
-                  <span>EXE & Rilis</span>
-                </Button>
-              </div>
-            ) : (
+            {isNativeApp && (
               <Button
                 variant="outline"
                 size="sm"
@@ -697,7 +640,6 @@ export function AppShell() {
       </div>
 
       <PasskeyDialog />
-      <DownloadDialog open={downloadDialogOpen} onOpenChange={setDownloadDialogOpen} />
     </div>
   )
 }

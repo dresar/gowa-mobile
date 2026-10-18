@@ -8,9 +8,12 @@ import {
   FileArchive,
   GitBranch,
   GitCommit,
+  Globe,
   History,
+  Laptop,
   Monitor,
   Package,
+  Power,
   Radio,
   RefreshCw,
   RotateCcw,
@@ -48,6 +51,8 @@ import { InfoHint } from '@/components/ui/info-hint'
 import { cn } from '@/lib/utils'
 import {
   getAppSettings,
+  getStoryStats,
+  likeRemainingStories,
   getSystemVersion,
   syncSystem,
   updateAppSettings,
@@ -77,6 +82,8 @@ export default function SettingsGeneralPage() {
   const [presencePulseEnabled, setPresencePulseEnabled] = useState(true)
   const [presenceOnConnect, setPresenceOnConnect] = useState('unavailable')
   const [autoReplyMessage, setAutoReplyMessage] = useState('')
+  const [windowsAutoStart, setWindowsAutoStart] = useState(false)
+  const [autoOpenBrowser, setAutoOpenBrowser] = useState(true)
 
   const [syncResult, setSyncResult] = useState<SyncSystemResult | null>(null)
   const [showSyncModal, setShowSyncModal] = useState(false)
@@ -93,6 +100,8 @@ export default function SettingsGeneralPage() {
       setPresencePulseEnabled(settings.presence_pulse_enabled ?? true)
       setPresenceOnConnect(settings.presence_on_connect || 'unavailable')
       setAutoReplyMessage(settings.auto_reply_message || '')
+      setWindowsAutoStart(settings.windows_autostart ?? false)
+      setAutoOpenBrowser(settings.auto_open_browser ?? true)
     }
   }, [settings])
 
@@ -150,10 +159,28 @@ export default function SettingsGeneralPage() {
     syncMutation.mutate()
   }
 
+  const { data: storyStats, refetch: refetchStoryStats } = useQuery({
+    queryKey: ['story-stats'],
+    queryFn: getStoryStats,
+    refetchInterval: 30000,
+  })
+
+  const likeRemainingMutation = useMutation({
+    mutationFn: likeRemainingStories,
+    onSuccess: (data) => {
+      refetchStoryStats()
+      toast.success(`Berhasil memindai dan menyukai ${data.liked_count} story yang tersisa!`)
+    },
+    onError: (err: any) => {
+      toast.error('Gagal memproses story tersisa: ' + (err?.message || 'Error'))
+    },
+  })
+
   const mutation = useMutation({
     mutationFn: updateAppSettings,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['app-settings'] })
+      refetchStoryStats()
       toast.success('Pengaturan disimpan')
     },
     onError: (err: any) => {
@@ -172,6 +199,8 @@ export default function SettingsGeneralPage() {
       presence_pulse_enabled: presencePulseEnabled,
       presence_on_connect: presenceOnConnect,
       auto_reply_message: autoReplyMessage.trim(),
+      windows_autostart: windowsAutoStart,
+      auto_open_browser: autoOpenBrowser,
     })
   }
 
@@ -356,12 +385,17 @@ export default function SettingsGeneralPage() {
           </div>
 
           {autoLikeStatus && (
-            <div className="border-border/50 bg-muted/20 flex flex-col gap-2 rounded-lg border p-2.5">
+            <div className="border-border/50 bg-muted/20 flex flex-col gap-2.5 rounded-lg border p-2.5">
               <div className="flex items-center justify-between">
                 <Label htmlFor="auto-like-emoji" className="font-medium text-xs">
                   Emoji Reaksi Status
                 </Label>
-                <span className="text-xs font-semibold">{autoLikeStatusEmoji}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold">{autoLikeStatusEmoji}</span>
+                  <Badge variant="outline" className="text-[10px] font-medium border-emerald-500/30 text-emerald-500 bg-emerald-500/10">
+                    Auto-Recover Aktif
+                  </Badge>
+                </div>
               </div>
               <div className="flex items-center gap-1.5 flex-wrap">
                 {['💚', '❤️', '👍', '🔥', '😍', '👏', '✨', '💯'].map((emo) => (
@@ -387,6 +421,46 @@ export default function SettingsGeneralPage() {
                   className="h-8 w-16 text-center text-xs"
                   maxLength={4}
                 />
+              </div>
+
+              {/* Story Monitor & Instant Recovery */}
+              <div className="mt-1 flex flex-col gap-2 rounded-md bg-background/50 border border-border/40 p-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
+                    <Sparkles className="size-3 text-amber-500" />
+                    <span>Statistik Story 24 Jam Terakhir</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-muted-foreground">
+                      Total: <strong className="text-foreground">{storyStats?.total_stories_24h ?? 0}</strong>
+                    </span>
+                    <span className="text-[11px] text-emerald-500">
+                      Disukai: <strong>{storyStats?.total_liked_24h ?? 0}</strong>
+                    </span>
+                    {(storyStats?.total_unliked_24h ?? 0) > 0 && (
+                      <span className="text-[11px] text-amber-500 font-medium">
+                        Tersisa: <strong>{storyStats?.total_unliked_24h}</strong>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/30">
+                  <span className="text-[11px] text-muted-foreground">
+                    Sistem otomatis mendeteksi story baru & auto-recovery sisa story saat bot online.
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px] px-2.5 gap-1 shrink-0"
+                    disabled={likeRemainingMutation.isPending}
+                    onClick={() => likeRemainingMutation.mutate()}
+                  >
+                    <RefreshCw className={cn("size-3", likeRemainingMutation.isPending && "animate-spin")} />
+                    {likeRemainingMutation.isPending ? 'Memindai...' : 'Pindai & Sukai Story Sekarang'}
+                  </Button>
+                </div>
               </div>
             </div>
           )}
@@ -550,6 +624,76 @@ export default function SettingsGeneralPage() {
               <Bell className="size-3.5 text-primary" />
               <span>Minta Izin Notifikasi</span>
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="glass-card rounded-xl">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                <Laptop className="size-4 text-primary" />
+                <span>Integrasi Desktop & Windows Startup</span>
+                <InfoHint
+                  title="Otomatisasi Startup Laptop"
+                  description="Pengaturan perilaku aplikasi GoWA saat sistem operasi Windows dihidupkan."
+                  items={[
+                    'Jalankan Otomatis: Memastikan service GoWA aktif otomatis di latar belakang setiap kali laptop dinyalakan.',
+                    'Buka Antarmuka Otomatis: Mengatur apakah tab browser dashboard otomatis terbuka saat menyala atau service berjalan hening di latar belakang.',
+                  ]}
+                />
+              </CardTitle>
+              <CardDescription className="text-xs mt-0.5">
+                Konfigurasi apakah GoWA langsung aktif saat laptop hidup dan apakah halaman antarmuka web otomatis terbuka.
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-1.5 self-start sm:self-auto">
+              <Badge variant="outline" className="border-blue-500/40 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px] font-mono">
+                Windows HKCU Run
+              </Badge>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2.5">
+          <div className="border-border/50 bg-muted/20 flex items-center justify-between rounded-lg border p-2.5">
+            <div className="flex flex-col gap-0.5">
+              <Label htmlFor="windows-autostart" className="font-medium text-xs flex items-center gap-1.5 cursor-pointer">
+                <Power className="size-3.5 text-primary" />
+                <span>Jalankan Otomatis Saat Windows Mulai (Startup)</span>
+              </Label>
+              <span className="text-muted-foreground text-[11px]">
+                Aplikasi GoWA akan otomatis berjalan di latar belakang setiap kali laptop dihidupkan atau restart.
+              </span>
+            </div>
+            <Switch
+              id="windows-autostart"
+              checked={windowsAutoStart}
+              onCheckedChange={(val) => {
+                setWindowsAutoStart(val)
+                mutation.mutate({ windows_autostart: val })
+              }}
+            />
+          </div>
+
+          <div className="border-border/50 bg-muted/20 flex items-center justify-between rounded-lg border p-2.5">
+            <div className="flex flex-col gap-0.5">
+              <Label htmlFor="auto-open-browser" className="font-medium text-xs flex items-center gap-1.5 cursor-pointer">
+                <Globe className="size-3.5 text-blue-500" />
+                <span>Buka Tampilan Antarmuka (Web UI) Otomatis di Browser</span>
+              </Label>
+              <span className="text-muted-foreground text-[11px]">
+                Otomatis memunculkan tab dashboard browser saat aplikasi menyala. Matikan opsi ini jika ingin GoWA berjalan hening di background.
+              </span>
+            </div>
+            <Switch
+              id="auto-open-browser"
+              checked={autoOpenBrowser}
+              onCheckedChange={(val) => {
+                setAutoOpenBrowser(val)
+                mutation.mutate({ auto_open_browser: val })
+              }}
+            />
           </div>
         </CardContent>
       </Card>

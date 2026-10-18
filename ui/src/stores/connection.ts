@@ -92,15 +92,15 @@ export const useConnection = create<ConnectionState>()(
 
       recheckConnection: async () => {
         const { baseUrl, token, username, password } = get()
-        const targetUrl = baseUrl || sameOriginBaseUrl()
+        const targetUrl = baseUrl || sameOriginBaseUrl() || 'https://agentai.my.id'
         if (!targetUrl) return false
         const res = await probeServer(targetUrl, token ?? undefined, username ?? undefined, password ?? undefined)
         if (res === 'ok') {
-          set({ status: 'connected', isOffline: false })
+          set({ baseUrl: targetUrl, status: 'connected', isOffline: false })
           return true
         }
         if (res === 'unauthorized') {
-          set({ status: 'unauthorized', isOffline: false })
+          set({ baseUrl: targetUrl, status: 'unauthorized', isOffline: false })
           return false
         }
         set({ isOffline: true })
@@ -241,9 +241,69 @@ export const useConnection = create<ConnectionState>()(
       },
 
       boot: async () => {
-        const { baseUrl, token, username, password } = get()
+        let { baseUrl, token, username, password, savedEndpoints } = get()
+
+        // 1. Purge stale/dead domains from cached baseUrl
+        if (
+          baseUrl &&
+          (baseUrl.includes('trycloudflare.com') ||
+            baseUrl.includes('serverinka.cloud') ||
+            baseUrl.includes('localhost:3000'))
+        ) {
+          baseUrl = null
+        }
+
+        // Clean savedEndpoints from dead domains and ensure https://agentai.my.id is present
+        const cleanSavedEndpoints = (savedEndpoints || DEFAULT_ENDPOINTS).filter(
+          (ep) => !ep.includes('trycloudflare.com') && !ep.includes('serverinka.cloud')
+        )
+        if (!cleanSavedEndpoints.includes('https://agentai.my.id')) {
+          cleanSavedEndpoints.unshift('https://agentai.my.id')
+        }
+
+        // 2. Check if running in mobile APK / WebView mode
+        const isApkMode =
+          typeof window !== 'undefined' &&
+          (window.location.protocol === 'file:' ||
+            /GoWAMobile/i.test(navigator.userAgent) ||
+            Boolean((window as any).GoWAMobile) ||
+            Boolean((window as any).Android) ||
+            Boolean((window as unknown as { isGowaApk?: boolean }).isGowaApk))
+
+        if (isApkMode) {
+          let nativeUrl: string | undefined
+          try {
+            nativeUrl =
+              (window as any).GoWAMobile?.getServerUrl?.() ||
+              (window as any).Android?.getServerUrl?.()
+          } catch {}
+
+          if (
+            !nativeUrl ||
+            nativeUrl.includes('trycloudflare.com') ||
+            nativeUrl.includes('serverinka.cloud') ||
+            nativeUrl.includes('localhost:3000')
+          ) {
+            nativeUrl = 'https://agentai.my.id'
+            try {
+              ;(window as any).GoWAMobile?.saveServerUrl?.('https://agentai.my.id') ||
+                (window as any).Android?.saveServerUrl?.('https://agentai.my.id')
+            } catch {}
+          }
+
+          if (!baseUrl) {
+            baseUrl = nativeUrl
+          }
+        }
+
         const origin = sameOriginBaseUrl()
-        const targetUrl = baseUrl || origin
+        const fallbackDefault = normalizeBaseUrl(
+          (import.meta.env.VITE_DEFAULT_SERVER_URL as string | undefined) ||
+            'https://agentai.my.id',
+        )
+        const targetUrl = baseUrl || origin || fallbackDefault
+
+        set({ baseUrl: targetUrl, savedEndpoints: cleanSavedEndpoints })
 
         if (targetUrl) {
           const stored = await probeServer(targetUrl, token ?? undefined, username ?? undefined, password ?? undefined)
@@ -262,18 +322,14 @@ export const useConnection = create<ConnectionState>()(
           }
         }
 
-        const defaultServer = normalizeBaseUrl(
-          (import.meta.env.VITE_DEFAULT_SERVER_URL as string | undefined) ||
-            'http://localhost:3000',
-        )
-        if (defaultServer && defaultServer !== origin) {
-          const defRes = await probeServer(defaultServer, token ?? undefined)
+        if (fallbackDefault && fallbackDefault !== origin && fallbackDefault !== targetUrl) {
+          const defRes = await probeServer(fallbackDefault, token ?? undefined)
           if (defRes === 'ok') {
-            set({ baseUrl: defaultServer, status: 'connected', isOffline: false })
+            set({ baseUrl: fallbackDefault, status: 'connected', isOffline: false })
             return
           }
           if (defRes === 'unauthorized') {
-            set({ baseUrl: defaultServer, status: 'unauthorized', isOffline: false })
+            set({ baseUrl: fallbackDefault, status: 'unauthorized', isOffline: false })
             return
           }
         }
@@ -294,7 +350,7 @@ export const useConnection = create<ConnectionState>()(
         if (token && targetUrl) {
           set({ baseUrl: targetUrl, status: 'connected', isOffline: true })
         } else {
-          set({ baseUrl: targetUrl || origin, status: 'unauthorized', isOffline: false })
+          set({ baseUrl: targetUrl || origin || fallbackDefault, status: 'unauthorized', isOffline: false })
         }
       },
 

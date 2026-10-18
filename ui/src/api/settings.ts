@@ -28,6 +28,8 @@ export interface AppSettings {
   bot_ai_auto_reply_enabled: boolean
   supermemory_enabled: boolean
   supermemory_api_key?: string
+  windows_autostart?: boolean
+  auto_open_browser?: boolean
   version: string
   os: string
   uptime_seconds: number
@@ -98,4 +100,20 @@ export function getSystemVersion(): Promise<SystemVersionInfo> {
 
 export function syncSystem(): Promise<SyncSystemResult> {
   return results<SyncSystemResult>(http.post('/app/system/sync'))
+}
+
+export interface StoryStats {
+  total_stories_24h: number
+  total_liked_24h: number
+  total_unliked_24h: number
+  auto_like_enabled: boolean
+  active_emoji: string
+}
+
+export function getStoryStats(): Promise<StoryStats> {
+  return results<StoryStats>(http.get('/story/stats'))
+}
+
+export function likeRemainingStories(): Promise<{ liked_count: number }> {
+  return results<{ liked_count: number }>(http.post('/story/like-remaining'))
 }

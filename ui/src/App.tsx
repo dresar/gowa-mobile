@@ -41,6 +41,7 @@ import BotMenuDetailPage from '@/pages/bot-menu-detail-page'
 import BotGroupsPage from '@/pages/bot-groups'
 import BotLogsPage from '@/pages/bot-logs'
 import IntegrationsPage from '@/pages/integrations'
+import BroadcastPage from '@/pages/broadcast'
 
 const notifiedMessageCache = new Map<string, number>()
 
@@ -224,6 +225,8 @@ function App() {
       <Route element={<AppShell />}>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/messaging" element={<MessagingPage />} />
+        <Route path="/broadcast" element={<BroadcastPage />} />
+        <Route path="/campaigns" element={<Navigate to="/broadcast" replace />} />
         <Route path="/scheduled" element={<ScheduledPage />} />
         <Route path="/send" element={<Navigate to="/messaging" replace />} />
         <Route path="/messages" element={<Navigate to="/messaging" replace />} />
