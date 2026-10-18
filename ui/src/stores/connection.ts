@@ -73,8 +73,7 @@ export async function probeServer(
 }
 
 const DEFAULT_ENDPOINTS = [
-  'https://reports-excess-euros-give.trycloudflare.com',
-  'https://hermes-jas1tz-8011.eu2.sumopod.my.id',
+  'https://agentai.my.id',
   'http://localhost:8011',
 ]
 

@@ -11,6 +11,7 @@ export type WsEventCode =
   | 'INCOMING_MESSAGE'
   | 'CHAT_MESSAGE_NEW'
   | 'SCHEDULED_DELIVERED'
+  | 'SCHEDULED_FAILED'
 
 export interface WsEvent {
   code: WsEventCode

@@ -197,6 +197,15 @@ function useBootstrap() {
             void queryClient.invalidateQueries({ queryKey: ['scheduled-sends'] })
             break
           }
+          case 'SCHEDULED_FAILED': {
+            const data = event.result as { id?: string; phone?: string; summary?: string; message_type?: string; error?: string } | null
+            const phone = data?.phone || 'Penerima'
+            const err = data?.error || 'Melebihi batas waktu toleransi penjadwalan'
+            const notifKey = `sched_fail_${data?.id || phone}_${Date.now()}`
+            notify('Jadwal Pesan Gagal', `Jadwal ke ${phone} gagal: ${err}`, notifKey)
+            void queryClient.invalidateQueries({ queryKey: ['scheduled-sends'] })
+            break
+          }
           default:
             break
         }

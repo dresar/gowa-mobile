@@ -40,7 +40,7 @@ export default function ConnectPage() {
   const initialServer =
     baseUrl ||
     sameOriginBaseUrl() ||
-    'https://reports-excess-euros-give.trycloudflare.com'
+    'https://agentai.my.id'
 
   const [endpointInput, setEndpointInput] = useState(initialServer)
   const [testingEndpoint, setTestingEndpoint] = useState(false)
@@ -229,7 +229,7 @@ export default function ConnectPage() {
                   <Input
                     id="endpoint-url"
                     type="url"
-                    placeholder="https://gowa.serverinka.cloud"
+                    placeholder="https://agentai.my.id"
                     value={endpointInput}
                     onChange={(e) => {
                       setEndpointInput(e.target.value)

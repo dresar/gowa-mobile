@@ -108,7 +108,7 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public String getServerUrl() {
             SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-            return prefs.getString(KEY_SERVER_URL, "");
+            return prefs.getString(KEY_SERVER_URL, "https://agentai.my.id");
         }
 
         @JavascriptInterface
